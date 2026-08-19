@@ -1,0 +1,20 @@
+:root{ --cream:#F3EFE6; --ink:#1a1917; --mono:"Spline Sans Mono",ui-monospace,SFMono-Regular,Menlo,monospace; }
+*{box-sizing:border-box}
+html,body,#root{height:100%;margin:0}
+body{background:var(--cream);color:var(--ink);font-family:ui-sans-serif,-apple-system,"Helvetica Neue",Arial,sans-serif}
+/* minmax(0,1fr) gives the row a definite height; an auto row would resolve
+   the child's height:100% circularly and collapse the stage to nothing */
+.app{height:100%;display:grid;grid-template-rows:minmax(0,1fr);padding:24px}
+.stage{position:relative;min-height:0;overflow:hidden;background:var(--cream);
+  border:1px solid #d4cdc0;border-radius:6px}
+.stage canvas{display:block;width:100%;height:100%}
+.ann{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.ann text{font-family:var(--mono);font-weight:300;font-size:10px;letter-spacing:.02em;
+  fill:var(--ink);text-transform:uppercase}
+.hud{position:absolute;left:14px;bottom:12px;display:flex;gap:12px;align-items:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:#66645f;background:rgba(250,247,240,.72);backdrop-filter:blur(8px);
+  padding:6px 10px;border-radius:4px}
+.bar{display:block;width:120px;height:3px;background:#d4cdc0;border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:#F4701A}
+@media (max-width:640px){ .app{padding:10px} }
