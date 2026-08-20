@@ -1,9 +1,9 @@
 {
-  "name": "ordinant-heatfield",
+  "name": "heat-field",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "WebGPU contour-banded heat field — organic metaball thermal shader with loop-safe video export.",
+  "description": "WebGPU contour-banded heat field \u2014 organic metaball thermal shader with loop-safe video export.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
