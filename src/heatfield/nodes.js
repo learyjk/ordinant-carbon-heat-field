@@ -30,6 +30,31 @@ export function buildNodes(P) {
         colOf.push(c);
       }
     }
+  } else if (P.layout === 'lockedRows') {
+    // mirror of lockedColumns: y is the exact row centre and never drifts (see
+    // lockY in stepNodes), x runs past [0,1] so the ribbons bleed off the sides
+    const rows = P.rows || 4, per = Math.max(1, Math.round(n / rows));
+    for (let r = 0; r < rows; r++) {
+      const cy = (r + 0.5) / rows;
+      colScale.push(0.55 + rnd() * 0.85);          // per-row heat
+      for (let k = 0; k < per; k++) {
+        homes.push([-0.15 + ((k + 0.5) / per + (rnd() - 0.5) * 0.16) * 1.3, cy]);
+        colOf.push(r);
+      }
+    }
+  } else if (P.layout === 'lockedGrid') {
+    // a regular lattice with both axes pinned, so cells pulse and bloom in
+    // place rather than wandering. cols derives from the node count so the
+    // slider still changes density.
+    const cols = P.cols || Math.max(2, Math.round(Math.sqrt(n * 1.8)));
+    const rows = P.rows || Math.max(1, Math.round(n / cols));
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        colScale.push(0.5 + rnd() * 0.9);          // per-cell heat
+        homes.push([(c + 0.5) / cols, (r + 0.5) / rows]);
+        colOf.push(colScale.length - 1);
+      }
+    }
   } else if (P.layout === 'columns') {
     const cols = Math.max(3, Math.round(n / 4));
     for (let i = 0; i < n; i++) homes.push([(i % cols + 0.5) / cols + (rnd() - 0.5) * 0.05, rnd()]);
@@ -51,7 +76,8 @@ export function buildNodes(P) {
 
   // push homes past [0,1] so the field bleeds off the panel edges. Locked
   // columns manage their own vertical bleed; remapping would move the columns.
-  const b = P.layout === 'lockedColumns' ? 0 : (P.bleed || 0);
+  const LOCKED = ['lockedColumns', 'lockedRows', 'lockedGrid'];
+  const b = LOCKED.includes(P.layout) ? 0 : (P.bleed || 0);
   if (b) for (const h of homes) { h[0] = -b + h[0] * (1 + 2 * b); h[1] = -b + h[1] * (1 + 2 * b); }
 
   const nodes = [];
@@ -168,6 +194,9 @@ export function stepNodes(nodes, P, t, aspect, out, loop) {
       const g = e * e * (3 - 2 * e);
       inten *= g; r *= 0.35 + 0.65 * g;
     }
+
+    if (P.lockX) x = n.hx;
+    if (P.lockY) y = n.hy;
 
     n._sx = x; n._sy = y; n._sr = r; n._si = inten;
     const o = i * 4;

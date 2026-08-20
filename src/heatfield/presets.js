@@ -23,6 +23,21 @@ export const PRESETS = {
     travel: 0.07, count: 35, cols: 5, layout: 'lockedColumns', lockX: true,
     rmin: 0.07, rmax: 0.115, seed: 4055, labels: 4, connect: 1 },
 
+  // mirror of columns — pinned rows, drifting horizontally
+  rows: { ...base,
+    bands: 9, contour: 0.88, gain: 1.05, curve: 0.78, floorT: 0.075, falloff: 2.6,
+    grain: 0.018, aniso: 0.95, warp: 0.042, warpFreq: 2.2, speed: 0.85, pulse: 0.36,
+    travel: 0.07, count: 44, rows: 4, layout: 'lockedRows', lockY: true,
+    rmin: 0.075, rmax: 0.125, seed: 7311, labels: 4, connect: 1 },
+
+  // regular lattice; both axes pinned so cells breathe in place (travel is a
+  // no-op here by design)
+  grid: { ...base,
+    bands: 7, contour: 0.9, gain: 1.05, curve: 0.8, floorT: 0.08, falloff: 2.8,
+    grain: 0.02, aniso: 1, warp: 0.03, warpFreq: 2.4, speed: 0.9, pulse: 0.5,
+    travel: 0, count: 28, layout: 'lockedGrid', lockX: true, lockY: true,
+    rmin: 0.06, rmax: 0.105, seed: 9042, labels: 3, connect: 1 },
+
   dense: { ...base,
     bands: 7, gain: 1.15, floorT: 0.07, falloff: 2.4, aniso: 1, warp: 0.055,
     warpFreq: 2.6, speed: 1, pulse: 0.3, travel: 0.09, count: 60, layout: 'grid',

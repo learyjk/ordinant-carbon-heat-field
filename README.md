@@ -48,13 +48,21 @@ agents.
 | preset | what it is |
 |---|---|
 | `organism` | single connected cluster, round lobes, bleeds vertically |
-| `columns` | metaballs pinned to fixed column centres (`lockX`), round not stretched |
-| `dense` | jittered grid of separated cells |
+| `columns` | pinned to column centres (`lockX`), drifts vertically |
+| `rows` | pinned to row centres (`lockY`), drifts horizontally |
+| `grid` | regular lattice, both axes pinned — cells breathe in place |
+| `dense` | jittered grid of separated cells, free drift |
 | `banner` | anisotropic vertical smear |
 | `contained` | frameless: blobs die out before the edge, ring stays inside |
 
-Columns come from the **locked layout**, not from anisotropy — which is why
-`columns` can keep `aniso ≈ 1.1` and still read as vertical chains.
+The structure in `columns` / `rows` / `grid` comes from the **locked layout**,
+not from anisotropy — which is why they can all keep `aniso ≈ 1` and still read
+as chains or a matrix, with round blobs rather than stretched ones. Getting that
+from anisotropy instead is what made an earlier version look smeared.
+
+`grid` pins both axes, so the `travel` dial is a no-op there by design — the
+motion comes from pulse and the bloom lifecycles instead. Its column count
+derives from the node count, so the `nodes` dial still changes density.
 
 ## Looping video export
 
