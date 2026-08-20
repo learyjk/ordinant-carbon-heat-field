@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useDialKit } from 'dialkit';
+import { useDialKitController } from 'dialkit';
 import { Engine, Panel } from './heatfield/engine.js';
 import { PRESETS, PRESET_NAMES, DEFAULT_PRESET } from './heatfield/presets.js';
 import { recordLoop, download, exportSupported } from './export/recordLoop.js';
@@ -11,10 +11,15 @@ export default function App() {
   const panelRef = useRef(null);
   const [status, setStatus] = useState('starting…');
   const [busy, setBusy] = useState(null);
+  // Engine boots async. Without this the dial-sync effect below runs once with
+  // panelRef still null and never re-runs, so persisted values are silently
+  // ignored until the user nudges a control.
+  const [ready, setReady] = useState(false);
   const actionRef = useRef(() => {});
 
-  const p = useDialKit('Heat field', {
+  const dial = useDialKitController('Heat field', {
     preset: { type: 'select', options: PRESET_NAMES, default: DEFAULT_PRESET },
+    reset: { type: 'action', label: 'Reset to defaults' },
 
     look: {
       bands: [8, 2, 20, 1],
@@ -54,8 +59,11 @@ export default function App() {
       mode: { type: 'select', options: ['seamless', 'pingpong'], default: 'seamless' },
       container: { type: 'select', options: ['mp4', 'webm'], default: 'mp4' },
       fps: { type: 'select', options: ['24', '30', '60'], default: '30' },
-      width: [1280, 480, 1920, 16],
-      height: [720, 270, 1080, 16],
+      // dialkit snaps to min + k*step, so min/max/step must be chosen to put the
+      // standard sizes exactly on the grid. 720 with min 270 step 16 lands on
+      // 718 ((720-270)/16 = 28.125).
+      width: [1280, 320, 1920, 8],    // reaches 640 / 960 / 1080 / 1280 / 1600 / 1920
+      height: [720, 240, 1080, 4],    // reaches 360 / 540 / 600 / 720 / 1080
       record: { type: 'action', label: 'Export loop' },
     },
   }, {
@@ -63,6 +71,7 @@ export default function App() {
     persist: true,
     onAction: (path) => actionRef.current(path),
   });
+  const p = dial.values;
 
   // ── boot ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -74,6 +83,7 @@ export default function App() {
       const panel = new Panel(engine, canvasRef.current, svgRef.current,
         { ...PRESETS[DEFAULT_PRESET] }, { seamless: true, length: 20 });
       panelRef.current = panel;
+      setReady(true);
 
       const fit = () => {
         const r = stageRef.current.getBoundingClientRect();
@@ -112,6 +122,32 @@ export default function App() {
     return () => { stop = true; cancelAnimationFrame(raf); ro?.disconnect(); };
   }, []);
 
+  // ── choosing a preset pushes its values into the dials ──────────────────
+  // Dial values override the preset when merging, so without this a preset
+  // only changed the fields that have no dial (layout, radii, seed) — picking
+  // "dense" kept whatever node count was already on the slider.
+  const appliedPreset = useRef(null);
+  useEffect(() => {
+    if (!ready) return;
+    if (appliedPreset.current === p.preset) return;
+    const first = appliedPreset.current === null;
+    appliedPreset.current = p.preset;
+    if (first) return;                     // respect persisted values on load
+    const B = PRESETS[p.preset];
+    if (!B) return;
+    dial.setValues({
+      look: { bands: B.bands, contour: B.contour, gain: B.gain, curve: B.curve,
+              outerGlow: B.floorT, falloff: B.falloff, grain: B.grain,
+              anisotropy: B.aniso },
+      motion: { speed: B.speed, pulse: B.pulse, travel: B.travel, warp: B.warp,
+                warpFreq: B.warpFreq, nodes: B.count },
+      annotations: { labels: B.labels ?? 0,
+                     connectors: typeof B.connect === 'boolean' ? (B.connect ? 1 : 0) : (B.connect ?? 0),
+                     rings: B.ring !== false, ringSize: B.ringWide ?? 1.45,
+                     spin: B.spin ?? 0.075 },
+    });
+  }, [p.preset, ready]);
+
   // ── push dial values into the engine ────────────────────────────────────
   useEffect(() => {
     const panel = panelRef.current;
@@ -139,7 +175,7 @@ export default function App() {
     if (panel.fscale !== p.cost.fieldScale) { panel.fscale = p.cost.fieldScale; panel.makeField(); }
     const r = stageRef.current.getBoundingClientRect();
     panel.resize(r.width, r.height);
-  }, [p]);
+  }, [p, ready]);
 
   // ── export ──────────────────────────────────────────────────────────────
   const doExport = useCallback(async () => {
@@ -171,8 +207,21 @@ export default function App() {
     }
   }, [p]);
 
+  const resetRef = useRef(() => {});
   useEffect(() => {
-    actionRef.current = (path) => { if (path.endsWith('record')) doExport(); };
+    resetRef.current = () => {
+      dial.resetValues();          // restores config defaults, clears any preset
+      setStatus('reset to defaults');
+    };
+  });
+
+  useEffect(() => {
+    actionRef.current = (path) => {
+      switch (path.split('.').pop()) {
+        case 'record': doExport(); break;
+        case 'reset': resetRef.current(); break;
+      }
+    };
   }, [doExport]);
 
   return (
