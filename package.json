@@ -3,11 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "WebGPU contour-banded heat field \u2014 organic metaball thermal shader with loop-safe video export.",
+  "description": "WebGPU contour-banded heat field — organic metaball thermal shader with loop-safe video export.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "webflow:bundle": "webflow devlink bundle --public-path http://localhost:4000/",
+    "webflow:import": "webflow devlink import"
   },
   "dependencies": {
     "dialkit": "^1.4.3",
@@ -18,6 +20,9 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.5",
+    "@webflow/data-types": "^2.1.1",
+    "@webflow/react": "^2.1.1",
+    "@webflow/webflow-cli": "^2.5.0",
     "vite": "^8.2.1"
   }
 }

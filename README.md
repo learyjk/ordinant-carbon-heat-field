@@ -16,6 +16,24 @@ npm run dev      # http://localhost:5178
 Requires WebGPU (Chrome, Edge, Safari 26+). Video export additionally needs
 WebCodecs.
 
+## Webflow Code Component
+
+`src/HeatField.webflow.jsx` declares the reusable renderer as a Webflow Code
+Component. It exposes the preset, visual, motion, annotation, loop, and
+performance controls from DialKit in grouped Webflow properties. Set **Use
+preset values** to **Custom** before changing the Look, Motion, or Annotation
+groups; preset values remain the source of truth while it is set to **Preset**.
+
+Validate the component bundle locally:
+
+```bash
+npm run webflow:bundle
+```
+
+To upload the library to a Webflow Workspace, run `npm run webflow:import`.
+That command opens the authorization flow on first use and should only be run
+when you are ready to share the component.
+
 ## How it works
 
 The field is a sum of Gaussian kernels, one per node. That is what makes "some
@@ -28,7 +46,7 @@ Rendering is two passes:
 
 1. **Field** — accumulate the scalar field into a low-res `r16float` target. The
    field is smooth and low-frequency, so half resolution costs a quarter as much
-   and looks the same. This is the dominant cost: *field pixels × nodes*.
+   and looks the same. This is the dominant cost: _field pixels × nodes_.
 2. **Colour** — sample it, quantise to contour bands with derivative AA, map
    through the ramp, dither.
 
@@ -45,14 +63,14 @@ agents.
 
 `organism` is the default — one wide cluster that bleeds off the top and bottom.
 
-| preset | what it is |
-|---|---|
-| `organism` | single connected cluster, round lobes, bleeds vertically |
-| `columns` | pinned to column centres (`lockX`), drifts vertically |
-| `rows` | pinned to row centres (`lockY`), drifts horizontally |
-| `grid` | regular lattice, both axes pinned — cells breathe in place |
-| `dense` | jittered grid of separated cells, free drift |
-| `banner` | anisotropic vertical smear |
+| preset      | what it is                                                  |
+| ----------- | ----------------------------------------------------------- |
+| `organism`  | single connected cluster, round lobes, bleeds vertically    |
+| `columns`   | pinned to column centres (`lockX`), drifts vertically       |
+| `rows`      | pinned to row centres (`lockY`), drifts horizontally        |
+| `grid`      | regular lattice, both axes pinned — cells breathe in place  |
+| `dense`     | jittered grid of separated cells, free drift                |
+| `banner`    | anisotropic vertical smear                                  |
 | `contained` | frameless: blobs die out before the edge, ring stays inside |
 
 The structure in `columns` / `rows` / `grid` comes from the **locked layout**,

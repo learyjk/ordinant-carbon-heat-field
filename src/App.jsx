@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useDialKitController } from 'dialkit';
-import { Engine, Panel } from './heatfield/engine.js';
+import { HeatField } from './HeatField.jsx';
 import { PRESETS, PRESET_NAMES, DEFAULT_PRESET } from './heatfield/presets.js';
 import { recordLoop, download, exportSupported } from './export/recordLoop.js';
 
 export default function App() {
-  const canvasRef = useRef(null);
-  const svgRef = useRef(null);
-  const stageRef = useRef(null);
   const panelRef = useRef(null);
   const [status, setStatus] = useState('starting…');
   const [busy, setBusy] = useState(null);
@@ -73,53 +70,20 @@ export default function App() {
   });
   const p = dial.values;
 
-  // ── boot ────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    let raf = 0, stop = false, ro = null;
-    (async () => {
-      const engine = await Engine.create();
-      if (stop) return;
-      if (!engine) { setStatus('WebGPU unavailable — try Chrome, Edge, or Safari 26+'); return; }
-      const panel = new Panel(engine, canvasRef.current, svgRef.current,
-        { ...PRESETS[DEFAULT_PRESET] }, { seamless: true, length: 20 });
-      panelRef.current = panel;
-      setReady(true);
-
-      const fit = () => {
-        const r = stageRef.current.getBoundingClientRect();
-        panel.resize(r.width, r.height);
-      };
-      fit();
-      ro = new ResizeObserver(fit);
-      ro.observe(stageRef.current);
-
-      let last = performance.now(), acc = 0, n = 0;
-      const tick = (now) => {
-        if (stop) return;
-        const dt = Math.min((now - last) / 1000, 0.05); last = now;
-        acc += dt; n++;
-        if (acc > 0.5) { setStatus(`${(n / acc).toFixed(0)} fps · ${panel.nodes.length} nodes`); acc = 0; n = 0; }
-        if (!panelRef.current.paused) {
-          panel.t += dt * panel.P.speed;
-          // keep t inside one loop so the phase never loses float precision
-          if (panel.t > panel.loop.length) panel.t -= panel.loop.length;
-        }
-        panel.render();
-        raf = requestAnimationFrame(tick);
-      };
-      raf = requestAnimationFrame(tick);
-
-      // Escape hatch for headless/hidden contexts, where rAF and
-      // ResizeObserver are both throttled to a stop, and for grabbing a
-      // deterministic frame at an exact time.
-      window.__hf = {
-        panel,
-        fit,
-        at(time) { panel.t = time; fit(); panel.render(); return time; },
-        pause(v = true) { panel.paused = v; },
-      };
-    })();
-    return () => { stop = true; cancelAnimationFrame(raf); ro?.disconnect(); };
+  const handlePanelReady = useCallback((panel) => {
+    panelRef.current = panel;
+    setReady(Boolean(panel));
+    if (!panel) {
+      delete window.__hf;
+      return;
+    }
+    const fit = () => panel.resize(panel.cssW, panel.cssH);
+    window.__hf = {
+      panel,
+      fit,
+      at(time) { panel.t = time; fit(); panel.render(); return time; },
+      pause(value = true) { panel.paused = value; },
+    };
   }, []);
 
   // ── choosing a preset pushes its values into the dials ──────────────────
@@ -148,35 +112,6 @@ export default function App() {
     });
   }, [p.preset, ready]);
 
-  // ── push dial values into the engine ────────────────────────────────────
-  useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    const base = PRESETS[p.preset] || PRESETS[DEFAULT_PRESET];
-    const next = {
-      ...base,
-      bands: p.look.bands, contour: p.look.contour, gain: p.look.gain,
-      curve: p.look.curve, floorT: p.look.outerGlow, falloff: p.look.falloff,
-      grain: p.look.grain, aniso: p.look.anisotropy,
-      speed: p.motion.speed, pulse: p.motion.pulse, travel: p.motion.travel,
-      warp: p.motion.warp, warpFreq: p.motion.warpFreq, count: p.motion.nodes,
-      labels: p.annotations.labels, connect: p.annotations.connectors,
-      ring: p.annotations.rings, ringWide: p.annotations.ringSize,
-      spin: p.annotations.spin,
-    };
-    // rebuilding nodes is only needed when the layout/topology changes
-    const topo = ['count', 'layout', 'seed', 'rmin', 'rmax', 'labels', 'cols',
-                  'spreadX', 'spreadY', 'bleed'];
-    const changed = !panel.P || topo.some((k) => panel.P[k] !== next[k]);
-    if (changed) panel.setPreset(next); else panel.P = next;
-    panel.loop.seamless = p.loop.seamless;
-    panel.loop.length = p.loop.length;
-    panel.rscale = p.cost.renderScale;
-    if (panel.fscale !== p.cost.fieldScale) { panel.fscale = p.cost.fieldScale; panel.makeField(); }
-    const r = stageRef.current.getBoundingClientRect();
-    panel.resize(r.width, r.height);
-  }, [p, ready]);
-
   // ── export ──────────────────────────────────────────────────────────────
   const doExport = useCallback(async () => {
     const panel = panelRef.current;
@@ -202,8 +137,7 @@ export default function App() {
     } finally {
       setBusy(null);
       panel.paused = false;
-      const r = stageRef.current.getBoundingClientRect();
-      panel.resize(r.width, r.height);
+      panel.resize(panel.cssW, panel.cssH);
     }
   }, [p]);
 
@@ -226,13 +160,43 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="stage" ref={stageRef}>
-        <canvas ref={canvasRef} />
-        <svg className="ann" ref={svgRef} />
-        <div className="hud">
-          <span>{status}</span>
-          {busy !== null && <span className="bar"><i style={{ width: `${busy * 100}%` }} /></span>}
-        </div>
+      <HeatField
+        preset={p.preset}
+        usePresetDefaults={false}
+        height="100%"
+        bands={p.look.bands}
+        contour={p.look.contour}
+        gain={p.look.gain}
+        curve={p.look.curve}
+        outerGlow={p.look.outerGlow}
+        falloff={p.look.falloff}
+        grain={p.look.grain}
+        anisotropy={p.look.anisotropy}
+        speed={p.motion.speed}
+        pulse={p.motion.pulse}
+        travel={p.motion.travel}
+        warp={p.motion.warp}
+        warpFreq={p.motion.warpFreq}
+        nodes={p.motion.nodes}
+        labels={p.annotations.labels}
+        connectors={p.annotations.connectors}
+        rings={p.annotations.rings}
+        ringSize={p.annotations.ringSize}
+        spin={p.annotations.spin}
+        seamless={p.loop.seamless}
+        loopLength={p.loop.length}
+        renderScale={p.cost.renderScale}
+        fieldScale={p.cost.fieldScale}
+        onPanelReady={handlePanelReady}
+        onStatusChange={setStatus}
+      />
+      <div className="hud">
+        <span>{status}</span>
+        {busy !== null && (
+          <span className="bar">
+            <i style={{ width: `${busy * 100}%` }} />
+          </span>
+        )}
       </div>
     </div>
   );
