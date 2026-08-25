@@ -1,0 +1,7 @@
+{
+  "library": {
+    "id": "heat-field",
+    "name": "Heat Field",
+    "components": ["./src/**/*.webflow.@(js|jsx|mjs|ts|tsx)"]
+  }
+}
