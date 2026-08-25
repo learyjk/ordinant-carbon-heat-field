@@ -5,7 +5,6 @@ import './HeatField.css';
 
 export const HEAT_FIELD_DEFAULTS = {
   preset: DEFAULT_PRESET,
-  usePresetDefaults: true,
   height: 600,
   bands: 8,
   contour: 0.92,
@@ -33,69 +32,60 @@ export const HEAT_FIELD_DEFAULTS = {
   showStatus: false,
 };
 
-function resolvePreset(componentProps) {
-  const base = PRESETS[componentProps.preset] || PRESETS[DEFAULT_PRESET];
-  if (componentProps.usePresetDefaults) return base;
-
+// The preset supplies only what has no control of its own: layout, seed, radii,
+// spread, axis locking, bleed, edge containment and the ground colour. Every
+// field that IS exposed comes from the prop, so a control never sits there
+// looking editable while the preset quietly overrules it.
+function resolveConfig(p) {
+  const base = PRESETS[p.preset] || PRESETS[DEFAULT_PRESET];
   return {
     ...base,
-    bands: componentProps.bands,
-    contour: componentProps.contour,
-    gain: componentProps.gain,
-    curve: componentProps.curve,
-    floorT: componentProps.outerGlow,
-    falloff: componentProps.falloff,
-    grain: componentProps.grain,
-    aniso: componentProps.anisotropy,
-    speed: componentProps.speed,
-    pulse: componentProps.pulse,
-    travel: componentProps.travel,
-    warp: componentProps.warp,
-    warpFreq: componentProps.warpFreq,
-    count: componentProps.nodes,
-    labels: componentProps.labels,
-    connect: componentProps.connectors,
-    ring: componentProps.rings,
-    ringWide: componentProps.ringSize,
-    spin: componentProps.spin,
+    bands: p.bands,
+    contour: p.contour,
+    gain: p.gain,
+    curve: p.curve,
+    floorT: p.outerGlow,
+    falloff: p.falloff,
+    grain: p.grain,
+    aniso: p.anisotropy,
+    speed: p.speed,
+    pulse: p.pulse,
+    travel: p.travel,
+    warp: p.warp,
+    warpFreq: p.warpFreq,
+    count: p.nodes,
+    labels: p.labels,
+    connect: p.connectors,
+    ring: p.rings,
+    ringWide: p.ringSize,
+    spin: p.spin,
   };
 }
 
 export function HeatField(incomingProps) {
-  const componentProps = { ...HEAT_FIELD_DEFAULTS, ...incomingProps };
-  const { height, fieldScale, loopLength, onPanelReady, onStatusChange, renderScale, seamless, showStatus } = componentProps;
+  const {
+    preset, height, bands, contour, gain, curve, outerGlow, falloff, grain, anisotropy,
+    speed, pulse, travel, warp, warpFreq, nodes, labels, connectors, rings, ringSize, spin,
+    seamless, loopLength, renderScale, fieldScale, showStatus, onPanelReady, onStatusChange,
+  } = { ...HEAT_FIELD_DEFAULTS, ...incomingProps };
+
   const canvasRef = useRef(null);
   const svgRef = useRef(null);
   const stageRef = useRef(null);
   const panelRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState('Starting…');
-  const preset = useMemo(
-    () => resolvePreset(componentProps),
-    [
-      componentProps.preset,
-      componentProps.usePresetDefaults,
-      componentProps.bands,
-      componentProps.contour,
-      componentProps.gain,
-      componentProps.curve,
-      componentProps.outerGlow,
-      componentProps.falloff,
-      componentProps.grain,
-      componentProps.anisotropy,
-      componentProps.speed,
-      componentProps.pulse,
-      componentProps.travel,
-      componentProps.warp,
-      componentProps.warpFreq,
-      componentProps.nodes,
-      componentProps.labels,
-      componentProps.connectors,
-      componentProps.rings,
-      componentProps.ringSize,
-      componentProps.spin,
-    ],
-  );
+
+  const config = useMemo(() => resolveConfig({
+    preset, bands, contour, gain, curve, outerGlow, falloff, grain, anisotropy,
+    speed, pulse, travel, warp, warpFreq, nodes, labels, connectors, rings, ringSize, spin,
+  }), [preset, bands, contour, gain, curve, outerGlow, falloff, grain, anisotropy,
+       speed, pulse, travel, warp, warpFreq, nodes, labels, connectors, rings, ringSize, spin]);
+
+  // The engine boots async, so the first Panel must be built from whatever the
+  // props say at that moment — not from the values captured on first render.
+  const latest = useRef({ config, seamless, loopLength, fieldScale, renderScale });
+  latest.current = { config, seamless, loopLength, fieldScale, renderScale };
 
   useEffect(() => {
     onStatusChange?.(status);
@@ -114,7 +104,11 @@ export function HeatField(incomingProps) {
         return;
       }
 
-      const panel = new Panel(engine, canvasRef.current, svgRef.current, preset, { seamless, length: loopLength });
+      const boot = latest.current;
+      const panel = new Panel(engine, canvasRef.current, svgRef.current, boot.config,
+        { seamless: boot.seamless, length: boot.loopLength });
+      panel.rscale = boot.renderScale;
+      panel.fscale = boot.fieldScale;
       panelRef.current = panel;
       onPanelReady?.(panel);
       setReady(true);
@@ -164,22 +158,22 @@ export function HeatField(incomingProps) {
     const panel = panelRef.current;
     if (!panel || !ready) return;
 
-    const topologyKeys = ['count', 'layout', 'seed', 'rmin', 'rmax', 'labels', 'cols', 'rows', 'spreadX', 'spreadY', 'bleed'];
-    const topologyChanged = topologyKeys.some((key) => panel.P[key] !== preset[key]);
-    if (topologyChanged) panel.setPreset(preset);
-    else panel.P = preset;
+    // Rebuilding nodes is only needed when the layout or topology changes.
+    // `rows` matters as much as `cols` here — the lockedRows preset derives its
+    // ribbon count from it, so omitting it leaves stale nodes on a preset swap.
+    const topo = ['count', 'layout', 'seed', 'rmin', 'rmax', 'labels', 'cols', 'rows',
+                  'spreadX', 'spreadY', 'bleed'];
+    if (topo.some((k) => panel.P[k] !== config[k])) panel.setPreset(config);
+    else panel.P = config;
 
     panel.loop.seamless = seamless;
     panel.loop.length = loopLength;
     panel.rscale = renderScale;
-    if (panel.fscale !== fieldScale) {
-      panel.fscale = fieldScale;
-      panel.makeField();
-    }
+    if (panel.fscale !== fieldScale) { panel.fscale = fieldScale; panel.makeField(); }
 
     const bounds = stageRef.current?.getBoundingClientRect();
     if (bounds) panel.resize(bounds.width, bounds.height);
-  }, [fieldScale, loopLength, preset, ready, renderScale, seamless]);
+  }, [config, fieldScale, loopLength, ready, renderScale, seamless]);
 
   const unavailable = status.startsWith('WebGPU unavailable');
   const resolvedHeight = typeof height === 'number' ? `${height}px` : height;

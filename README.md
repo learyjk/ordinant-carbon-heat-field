@@ -19,10 +19,27 @@ WebCodecs.
 ## Webflow Code Component
 
 `src/HeatField.webflow.jsx` declares the reusable renderer as a Webflow Code
-Component. It exposes the preset, visual, motion, annotation, loop, and
-performance controls from DialKit in grouped Webflow properties. Set **Use
-preset values** to **Custom** before changing the Look, Motion, or Annotation
-groups; preset values remain the source of truth while it is set to **Preset**.
+Component. It exposes the dialkit look, motion, annotation, loop and cost dials
+as grouped Webflow properties.
+
+Webflow prop defaults are static, so a preset cannot re-seed them the way
+`dial.setValues()` does in the local demo. The split is therefore by field: the
+**preset** owns the structure that has no control of its own — layout, seed,
+radii, spread, axis locking, bleed, edge containment, ground colour — and every
+exposed property owns its own value on every preset. That means each control
+always does something, at the cost of the preset no longer carrying its tuned
+look values. To match a preset's original look, dial these in:
+
+| preset | notable non-default values |
+|---|---|
+| `banner` | anisotropy 3, falloff 3, bands 9, contour 0.88 |
+| `dense` | nodes 60, bands 7, outer glow 0.07, falloff 2.4 |
+| `columns` / `rows` | bands 9, contour 0.88, travel 0.07, speed 0.85 |
+| `grid` | bands 7, pulse 0.5, travel 0 |
+| `contained` | nodes 22, ring size 2, labels 1 |
+
+Setting **Labels** to 0 removes every annotation — rings and connector lines are
+anchored to labelled nodes.
 
 Validate the component bundle locally:
 

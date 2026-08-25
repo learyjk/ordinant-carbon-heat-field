@@ -152,7 +152,10 @@ export function stepNodes(nodes, P, t, aspect, out, loop) {
     const w3 = seamless ? qAng(n.w3, L) : n.w3;
     let x, y;
 
-    if (n.traveler) {
+    // k === 0 means travel is off. Travellers have to fall through to the
+    // static branch: the seamless path below rounds its cycle count up to a
+    // minimum of 1, so a zero travel would still carry them across the panel.
+    if (n.traveler && k > 0) {
       const sp = 1.3;
       if (seamless) {
         // travel a whole number of cycles per loop, so it lands where it began
@@ -209,6 +212,9 @@ export function stepNodes(nodes, P, t, aspect, out, loop) {
 export function ringSpin(base, spinK, loop) {
   const L = (loop && loop.length) || 20;
   const w = base * spinK;
+  // Snapping rounds up to one cycle per loop, so a zero has to short-circuit
+  // or the rings keep turning with the spin control at its minimum.
+  if (!w) return 0;
   if (!(loop && loop.seamless)) return w;
   const m = Math.max(1, Math.round((Math.abs(w) * L) / TAU)) * Math.sign(w || 1);
   return (TAU * m) / L;

@@ -162,7 +162,6 @@ export default function App() {
     <div className="app">
       <HeatField
         preset={p.preset}
-        usePresetDefaults={false}
         height="100%"
         bands={p.look.bands}
         contour={p.look.contour}

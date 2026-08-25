@@ -11,16 +11,9 @@ export default declareComponent(HeatField, {
     preset: props.Variant({
       name: 'Preset',
       group: 'Setup',
+      tooltip: 'Sets the layout: how nodes are placed, which axes are pinned, and how far the field bleeds past the edges.',
       options: PRESET_NAMES,
       defaultValue: 'organism',
-    }),
-    usePresetDefaults: props.Boolean({
-      name: 'Use preset values',
-      group: 'Setup',
-      tooltip: 'Turn off to apply the custom Look, Motion, and Annotation values below.',
-      defaultValue: true,
-      trueLabel: 'Preset',
-      falseLabel: 'Custom',
     }),
     height: props.Number({
       name: 'Height',
@@ -154,6 +147,7 @@ export default declareComponent(HeatField, {
     labels: props.Number({
       name: 'Labels',
       group: 'Annotations',
+      tooltip: 'Set to 0 to remove all labels, rings and connector lines.',
       defaultValue: 5,
       min: 0,
       max: 6,
@@ -162,6 +156,7 @@ export default declareComponent(HeatField, {
     connectors: props.Number({
       name: 'Connectors',
       group: 'Annotations',
+      tooltip: 'Number of lines drawn between labelled nodes.',
       defaultValue: 2,
       min: 0,
       max: 3,
